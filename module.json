@@ -13,11 +13,11 @@
     "minimum": "13",
     "verified": "13"
   },
-  "url": "https://github.com/Dxcufgb/dxcufgbs-token-follower",
-  "manifest": "https://github.com/Dxcufgb/dxcufgbs-token-follower/releases/latest/download/module.json",
-  "download": "https://github.com/Dxcufgb/dxcufgbs-token-follower/releases/latest/download/module.zip",
-  "bugs": "https://github.com/Dxcufgb/dxcufgbs-token-follower/issues",
-  "readme": "https://github.com/Dxcufgb/dxcufgbs-token-follower#readme",
+  "url": "https://github.com/dxcufgb/FoundryVTT-token-follower",
+  "manifest": "https://github.com/dxcufgb/FoundryVTT-token-follower/releases/latest/download/module.json",
+  "download": "https://github.com/dxcufgb/FoundryVTT-token-follower/releases/latest/download/module.zip",
+  "bugs": "https://github.com/dxcufgb/FoundryVTT-token-follower/issues",
+  "readme": "https://github.com/dxcufgb/FoundryVTT-token-follower#readme",
   "license": "LICENSE",
   "esmodules": [
     "scripts/token-follower.js"
