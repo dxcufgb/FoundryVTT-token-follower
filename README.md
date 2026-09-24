@@ -9,7 +9,7 @@ Press a key (default F, or Ctrl+F if F is taken) with a token selected, pick ano
 In Foundry: **Add-on Modules → Install Module**, paste this link into **Manifest URL** at the bottom, and click **Install**:
 
 ```
-https://github.com/Dxcufgb/dxcufgbs-token-follower/releases/latest/download/module.json
+https://github.com/dxcufgb/FoundryVTT-token-follower/releases/latest/download/module.json
 ```
 
 ## Features
