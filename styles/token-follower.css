@@ -1,0 +1,43 @@
+.dxtf-dialog .dxtf-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 360px;
+  overflow-y: auto;
+  margin: 6px 0;
+}
+
+.dxtf-dialog .dxtf-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.dxtf-dialog .dxtf-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dxtf-dialog .dxtf-option:has(input:checked) {
+  background: rgba(255, 100, 0, 0.18);
+  outline: 1px solid rgba(255, 100, 0, 0.6);
+}
+
+.dxtf-dialog .dxtf-option img {
+  width: 36px;
+  height: 36px;
+  border: none;
+  object-fit: contain;
+  flex: 0 0 36px;
+}
+
+.dxtf-dialog .dxtf-option .dxtf-name {
+  flex: 1;
+}
+
+.dxtf-dialog .dxtf-option .dxtf-dist {
+  opacity: 0.6;
+  font-size: 0.85em;
+}

@@ -1,0 +1,22 @@
+{
+  "DXTF": {
+    "Keybinding": {
+      "Name": "Follow / stop following",
+      "Hint": "With a token selected: pick a token for it to follow. Press again with the same token selected to stop following."
+    },
+    "Dialog": {
+      "Title": "Follow which token?",
+      "Intro": "Choose the token that <strong>{name}</strong> should follow.",
+      "Follow": "Follow",
+      "None": "There are no other tokens on this scene to follow."
+    },
+    "Notify": {
+      "NoToken": "Token Follower: select a token first.",
+      "Started": "{follower} is now following {leader}.",
+      "Stopped": "{follower} stopped following.",
+      "Rebound": "Token Follower: F is already used by \"{action}\", so the follow key was set to Ctrl+F. You can change it under Configure Controls.",
+      "NoFreeKey": "Token Follower: both F and Ctrl+F are already used. Set a key for \"Follow / stop following\" under Configure Controls.",
+      "Loop": "{leader} is already following {follower}; a token can't follow its own follower."
+    }
+  }
+}

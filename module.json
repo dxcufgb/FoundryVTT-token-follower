@@ -1,0 +1,36 @@
+{
+  "id": "dxcufgbs-token-follower",
+  "title": "Dxcufgb's Token Follower",
+  "description": "Press a key (default F, or Ctrl+F if F is taken) with a token selected, pick another token, and the selected token will follow behind it, including across scenes.",
+  "version": "1.0.0",
+  "authors": [
+    {
+      "name": "Dxcufgb",
+      "url": "https://github.com/Dxcufgb"
+    }
+  ],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  },
+  "url": "https://github.com/Dxcufgb/dxcufgbs-token-follower",
+  "manifest": "https://github.com/Dxcufgb/dxcufgbs-token-follower/releases/latest/download/module.json",
+  "download": "https://github.com/Dxcufgb/dxcufgbs-token-follower/releases/latest/download/module.zip",
+  "bugs": "https://github.com/Dxcufgb/dxcufgbs-token-follower/issues",
+  "readme": "https://github.com/Dxcufgb/dxcufgbs-token-follower#readme",
+  "license": "LICENSE",
+  "esmodules": [
+    "scripts/token-follower.js"
+  ],
+  "styles": [
+    "styles/token-follower.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
+  "socket": true
+}
