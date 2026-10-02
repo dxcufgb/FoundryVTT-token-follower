@@ -19,6 +19,8 @@ Lets a token follow another token.
 - Select your token and press the **follow key** (default **F**; if F is already used by something else it becomes **Ctrl+F**). Pick the token to follow in the dialog.
 - Players can only pick player-owned tokens they can currently see; GMs can pick any token.
 - After every move the follower steps into the square **behind** the leader: leader moves east, the follower ends up west of it; leader moves north-east, the follower ends up south-west, and so on.
+- If that square is taken or on the other side of a wall (e.g. the leader stops against a wall), the follower takes the nearest free square next to the leader on the leader's side of the wall.
+- If a GM moves the leader with unconstrained movement ("ghost mode"), the follower also moves unconstrained, through walls, and still ends up next to the leader on the leader's side of any wall.
 - If the leader goes to another scene (teleport region, Stairways, ...), the follower is moved there too and its owners' view follows.
 - Press the key again with the follower selected to stop following.
 
