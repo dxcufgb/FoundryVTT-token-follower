@@ -413,10 +413,11 @@ function isOccupied(scene, pos, fw, fh, ignoreIds) {
 
 /**
  * Where the follower should stand: directly behind the leader if possible, otherwise the
- * nearest free space next to the leader. Unless walls are ignored, the space must be on the
- * leader's side of any wall (no wall between the leader's center and the space's center).
+ * nearest free space next to the leader. The space must be on the leader's side of any wall
+ * (no wall between the leader's center and the space's center), even in "ghost mode":
+ * a leader that walked through a wall must not leave its follower on the other side.
  */
-function followPosition(scene, leader, follower, dir, { ignoreWalls = false, leaderId } = {}) {
+function followPosition(scene, leader, follower, dir, { leaderId } = {}) {
   const { w, h } = gridSize(scene);
   const fw = follower.width * w, fh = follower.height * h;
   const preferred = behindPosition(scene, leader, follower, dir);
@@ -440,7 +441,7 @@ function followPosition(scene, leader, follower, dir, { ignoreWalls = false, lea
 
     for (const p of candidates) {
       if (!isInsideScene(scene, p, fw, fh)) continue;
-      if (!ignoreWalls && isPathBlocked(scene, leaderCenter, { x: p.x + fw / 2, y: p.y + fh / 2 })) continue;
+      if (isPathBlocked(scene, leaderCenter, { x: p.x + fw / 2, y: p.y + fh / 2 })) continue;
       if (!isOccupied(scene, p, fw, fh, ignoreIds)) return p;
       fallback ??= p;
     }
@@ -461,7 +462,7 @@ async function moveBehind(follower, leaderPos, dir, { ignoreWalls = false, ignor
   const scene = follower.parent;
   const { w, h } = gridSize(scene);
   const fw = follower.width * w, fh = follower.height * h;
-  const target = followPosition(scene, leaderPos, follower, dir, { ignoreWalls, leaderId: leaderPos.id });
+  const target = followPosition(scene, leaderPos, follower, dir, { leaderId: leaderPos.id });
   const tx = Math.round(target.x), ty = Math.round(target.y);
 
   const f = getLeaderFlag(follower);
