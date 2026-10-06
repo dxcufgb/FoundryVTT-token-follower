@@ -51,6 +51,15 @@ Hooks.once("init", () => {
   });
 
   // Remembers (per user/browser) that the F / Ctrl+F check has been done.
+  game.settings.register(MODULE_ID, "followDistance", {
+    name: "TOKENFOLLOWER.Settings.FollowDistance.Name",
+    hint: "TOKENFOLLOWER.Settings.FollowDistance.Hint",
+    scope: "world",
+    config: true,
+    type: Number,
+    default: 1
+  });
+
   game.settings.register(MODULE_ID, "keyChecked", {
     scope: "client",
     config: false,
