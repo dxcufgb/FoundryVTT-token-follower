@@ -21,6 +21,7 @@
  *
  * API: game.modules.get("dxcufgbs-token-follower").api
  *   .follow(followerDoc, leaderDoc), .stop(followerDoc), .getFollowers(leaderDoc)
+ *   (follow() applies the same leader rule as the dialog: players only friendly tokens they can see)
  */
 
 const MODULE_ID = "dxcufgbs-token-follower";
@@ -230,6 +231,11 @@ function isFollowingChain(candidate, doc) {
 
 async function startFollowing(follower, leader) {
   if (!follower || !leader || follower === leader) return;
+  // The same leader rule as the dialog, also for callers of the API.
+  if (!game.user.isGM && !canPlayerPick(leader)) {
+    ui.notifications.warn(game.i18n.format("DXTF.Notify.CannotFollow", { leader: leader.name }));
+    return;
+  }
   if (isFollowingChain(leader, follower)) {
     ui.notifications.warn(game.i18n.format("DXTF.Notify.Loop", { leader: leader.name, follower: follower.name }));
     return;
@@ -628,9 +634,26 @@ async function teleportFollower(follower, leader, flag) {
   }
 }
 
-function onSocket(data) {
-  if (data?.type !== "pull" || !data.userIds?.includes(game.user.id)) return;
-  game.scenes.get(data.sceneId)?.view();
+/**
+ * Socket messages. Any client can emit on the module's socket, so nothing in the payload is trusted.
+ * The Foundry server appends the sending user's id after the emitted arguments, so with a single
+ * payload argument it arrives as `senderId`. A message with more arguments (a client trying to pass
+ * its own "sender") is ignored.
+ */
+function onSocket(data, senderId, ...extra) {
+  if (extra.length || typeof senderId !== "string") return;
+  if (data?.type !== "pull") return;
+
+  // Only a GM moves followers to another scene, so only a GM may pull views.
+  if (!game.users.get(senderId)?.isGM) return;
+
+  const { sceneId, userIds } = data;
+  if (typeof sceneId !== "string" || !Array.isArray(userIds)) return;
+  if (!userIds.every(id => typeof id === "string") || !userIds.includes(game.user.id)) return;
+
+  const scene = game.scenes.get(sceneId);
+  if (!scene || scene.id === canvas?.scene?.id) return;
+  scene.view();
 }
 
 /* -------------------------------------------- */
