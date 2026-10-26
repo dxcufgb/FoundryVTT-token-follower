@@ -6,6 +6,8 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/dxcufgb/FoundryVTT-token-follower/ci.yml?branch=main&label=CI)](https://github.com/dxcufgb/FoundryVTT-token-follower/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/dxcufgb/FoundryVTT-token-follower)](LICENSE)
 
+<a href="https://dxcufgb.github.io/FVTT-dev-showcase/"><img src="https://dxcufgb.github.io/FVTT-dev-showcase/assets/img/workshop-badge.png" alt="Dxcufgb's Workshop: every Foundry VTT project, video and changelog in one place" width="650"></a>
+
 Press a key (default F, or Ctrl+F if F is taken) with a token selected, pick another token, and the selected token will follow behind it, including across scenes.
 
 **Foundry VTT:** v13
