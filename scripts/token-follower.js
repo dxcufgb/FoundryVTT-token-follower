@@ -21,7 +21,8 @@
  *
  * API: game.modules.get("dxcufgbs-token-follower").api
  *   .follow(followerDoc, leaderDoc), .stop(followerDoc), .getFollowers(leaderDoc)
- *   (follow() applies the same leader rule as the dialog: players only friendly tokens they can see)
+ *   (follow() applies the same leader rule as the dialog: players only friendly tokens they can see;
+ *   follow() and stop() only change a follower token the calling user owns)
  */
 
 const MODULE_ID = "dxcufgbs-token-follower";
@@ -231,6 +232,11 @@ function isFollowingChain(candidate, doc) {
 
 async function startFollowing(follower, leader) {
   if (!follower || !leader || follower === leader) return;
+  // Only the follower's owner (or a GM) may write its flag; refuse instead of a permission error.
+  if (!follower.isOwner) {
+    ui.notifications.warn(game.i18n.format("DXTF.Notify.NotOwner", { follower: follower.name }));
+    return;
+  }
   // The same leader rule as the dialog, also for callers of the API.
   if (!game.user.isGM && !canPlayerPick(leader)) {
     ui.notifications.warn(game.i18n.format("DXTF.Notify.CannotFollow", { leader: leader.name }));
@@ -262,6 +268,10 @@ async function startFollowing(follower, leader) {
 
 async function stopFollowing(follower) {
   if (!getLeaderFlag(follower)) return;
+  if (!follower.isOwner) {
+    ui.notifications.warn(game.i18n.format("DXTF.Notify.NotOwner", { follower: follower.name }));
+    return;
+  }
   await follower.unsetFlag(MODULE_ID, "leader");
   ui.notifications.info(game.i18n.format("DXTF.Notify.Stopped", { follower: follower.name }));
 }
