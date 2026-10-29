@@ -17,7 +17,8 @@
       "Rebound": "Token Follower: F is already used by \"{action}\", so the follow key was set to Ctrl+F. You can change it under Configure Controls.",
       "NoFreeKey": "Token Follower: both F and Ctrl+F are already used. Set a key for \"Follow / stop following\" under Configure Controls.",
       "Loop": "{leader} is already following {follower}; a token can't follow its own follower.",
-      "CannotFollow": "Token Follower: you can only follow friendly tokens that you can see, so you can't follow {leader}."
+      "CannotFollow": "Token Follower: you can only follow friendly tokens that you can see, so you can't follow {leader}.",
+      "NotOwner": "Token Follower: you don't own {follower}, so you can't start or stop its following."
     }
   }
 }

@@ -50,7 +50,8 @@ api.getFollowers(leaderDoc);              // array of the TokenDocuments on lead
 ```
 
 - All three take **TokenDocuments** (`token.document`), not canvas tokens.
-- `follow` uses the same rules as the follow key: a player can only follow a friendly token they can currently see on their canvas; a GM can follow any token. A token can't follow its own follower. If a rule blocks it, the user gets a notification and nothing changes. The user calling it must own the follower token (the flag below is written as that user), and both tokens must be on the same scene.
+- `follow` uses the same rules as the follow key: a player can only follow a friendly token they can currently see on their canvas; a GM can follow any token. A token can't follow its own follower. If a rule blocks it, the user gets a notification and nothing changes. Both tokens must be on the same scene.
+- `follow` and `stop` only change a follower token the calling user owns (a GM owns every token). Otherwise the user gets a notification and nothing is written.
 - `follow` and `stop` show the same "is now following" / "stopped following" notifications as the key. After `follow`, the module keeps moving the follower by itself, as described under Features.
 - The module calls no hooks of its own. A follow starting or stopping is an `updateToken` change to the flag below.
 
