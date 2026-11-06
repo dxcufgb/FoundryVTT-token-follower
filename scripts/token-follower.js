@@ -46,6 +46,7 @@ const stats = {
 /** The last error this module caught: {area, error} (the error's type only). */
 let lastError = null;
 
+/** Remembers a caught error for the snapshot and leaves a breadcrumb: the area (fixed id) and the error's type only. */
 function caught(area, err) {
   lastError = { area, error: errorName(err) };
   crumb("error.caught", lastError);
@@ -710,6 +711,7 @@ async function teleportFollower(follower, leader, flag) {
  * payload argument it arrives as `senderId`. A message with more arguments (a client trying to pass
  * its own "sender") is ignored.
  */
+/** Counts the message for the Debug Recorder and leaves a breadcrumb with what happened. */
 function onSocket(data, senderId, ...extra) {
   const result = handleSocket(data, senderId, extra);
   if (result === "viewed") stats.pullsReceived++;

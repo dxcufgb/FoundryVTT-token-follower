@@ -23,6 +23,13 @@ let announced = null;
 /** Builds this module's snapshot (set by registerDebugRecorder). */
 let snapshotFn = null;
 
+/** The built-in error types a breadcrumb may name; anything else (a custom name can hold any text) is "Error". */
+const ERROR_NAMES = new Set([
+  "Error", "TypeError", "RangeError", "ReferenceError", "SyntaxError", "EvalError", "URIError", "AggregateError",
+  "AbortError", "NotFoundError", "NotAllowedError", "InvalidStateError", "QuotaExceededError", "SecurityError"
+]);
+
+/** The recorder's API: from its ready hook, or from its module entry if it was ready first; null without it. */
 function recorderApi() {
   return announced ?? game.modules?.get(RECORDER_ID)?.api ?? null;
 }
@@ -81,7 +88,10 @@ export function crumb(key, data) {
   }
 }
 
-/** The error's type ("TypeError", …) for a breadcrumb: never its message, which can hold names. */
+/**
+ * The error's type for a breadcrumb or the snapshot: one of the built-in names in ERROR_NAMES, otherwise "Error".
+ * Never its message, which can hold names.
+ */
 export function errorName(err) {
-  return typeof err?.name === "string" ? err.name : "Error";
+  return ERROR_NAMES.has(err?.name) ? err.name : "Error";
 }
