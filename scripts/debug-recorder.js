@@ -43,13 +43,15 @@ function snapshot() {
   }
 }
 
-/** Registers with the recorder once, as soon as both the recorder and the snapshot function are there. */
+/**
+ * Registers with the recorder once, as soon as both the recorder and the snapshot function are there. The API is
+ * kept only when register() succeeds (it returns false on failure), so the fallback on ready can try again.
+ */
 function connect() {
   const rec = recorderApi();
   if (recorder || !moduleId || !snapshotFn || typeof rec?.register !== "function") return;
   try {
-    rec.register(moduleId, { snapshot });
-    recorder = rec;
+    if (rec.register(moduleId, { snapshot }) !== false) recorder = rec;
   } catch (err) {
     console.warn(`${moduleId} | Debug Recorder registration failed`, err);
   }
