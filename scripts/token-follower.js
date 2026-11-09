@@ -23,7 +23,11 @@
  *   .follow(followerDoc, leaderDoc), .stop(followerDoc), .getFollowers(leaderDoc)
  *   (follow() applies the same leader rule as the dialog: players only friendly tokens they can see;
  *   follow() and stop() only change a follower token the calling user owns)
+ *
+ * Optional: registers with Dxcufgb's Debug Recorder when it is installed (scripts/debug-recorder.js).
  */
+
+import { registerDebugRecorder, crumb, errorName } from "./debug-recorder.js";
 
 const MODULE_ID = "dxcufgbs-token-follower";
 const ACTION = "follow";
@@ -34,6 +38,19 @@ const TELEPORT_DELAY_MS = 750;
 const lastPos = new Map();
 /** Token ids whose movement was already handled by the moveToken hook. */
 const handledByMoveHook = new Set();
+/** Counters for the Debug Recorder snapshot (this client, since load). */
+const stats = {
+  leaderMovesHook: 0, leaderMovesFallback: 0, followerMoves: 0, moveErrors: 0,
+  teleports: 0, teleportErrors: 0, pullsSent: 0, pullsReceived: 0, socketIgnored: 0
+};
+/** The last error this module caught: {area, error} (the error's type only). */
+let lastError = null;
+
+/** Remembers a caught error for the snapshot and leaves a breadcrumb: the area (fixed id) and the error's type only. */
+function caught(area, err) {
+  lastError = { area, error: errorName(err) };
+  crumb("error.caught", lastError);
+}
 
 /* -------------------------------------------- */
 /*  Init: keybinding and settings               */
@@ -64,6 +81,8 @@ Hooks.once("init", () => {
 Hooks.once("ready", async () => {
   const mod = game.modules.get(MODULE_ID);
   if (mod) mod.api = { follow: startFollowing, stop: stopFollowing, getFollowers };
+  // Optional: Dxcufgb's Debug Recorder (no dependency; does nothing without it).
+  registerDebugRecorder(MODULE_ID, debugSnapshot);
 
   game.socket.on(SOCKET, onSocket);
   await chooseDefaultKey();
@@ -97,23 +116,26 @@ async function chooseDefaultKey() {
   try {
     const current = game.keybindings.get(MODULE_ID, ACTION) ?? [];
     const isDefault = current.length === 1 && current[0].key === "KeyF" && !(current[0].modifiers?.length);
-    if (!isDefault) return;
+    if (!isDefault) return crumb("key.check", { result: "notDefault" });
 
     const conflict = findConflict("KeyF", []);
-    if (!conflict) return;
+    if (!conflict) return crumb("key.check", { result: "free" });
 
     const KM = foundry.helpers?.interaction?.KeyboardManager ?? globalThis.KeyboardManager;
     const ctrl = KM?.MODIFIER_KEYS?.CONTROL ?? "Control";
     const actionName = game.i18n.localize(game.keybindings.actions.get(conflict)?.name ?? conflict);
     if (!findConflict("KeyF", [ctrl])) {
       await game.keybindings.set(MODULE_ID, ACTION, [{ key: "KeyF", modifiers: [ctrl] }]);
+      crumb("key.check", { result: "ctrlF" });
       ui.notifications.info(game.i18n.format("DXTF.Notify.Rebound", { action: actionName }));
     } else {
       await game.keybindings.set(MODULE_ID, ACTION, []);
+      crumb("key.check", { result: "unbound" });
       ui.notifications.warn(game.i18n.localize("DXTF.Notify.NoFreeKey"));
     }
   } catch (err) {
     console.error(`${MODULE_ID} | key check failed`, err);
+    caught("keyCheck", err);
   } finally {
     await game.settings.set(MODULE_ID, "keyChecked", true);
   }
@@ -129,13 +151,15 @@ function getLeaderFlag(doc) {
 
 async function onFollowKey() {
   const controlled = canvas.tokens?.controlled?.map(t => t.document) ?? [];
+  const following = controlled.filter(d => getLeaderFlag(d));
+  const owned = controlled.filter(d => d.isOwner).length;
+  crumb("key.press", { selected: controlled.length, following: following.length, owned });
   if (!controlled.length) {
     ui.notifications.warn(game.i18n.localize("DXTF.Notify.NoToken"));
     return;
   }
 
   // Any selected token that is following -> stop them.
-  const following = controlled.filter(d => getLeaderFlag(d));
   if (following.length) {
     for (const doc of following) await stopFollowing(doc);
     return;
@@ -165,6 +189,7 @@ async function pickLeader(followers) {
     })
     .sort((a, b) => a.dist - b.dist);
 
+  crumb("dialog.open", { followers: followers.length, candidates: candidates.length });
   if (!candidates.length) {
     ui.notifications.warn(game.i18n.localize("DXTF.Dialog.None"));
     return null;
@@ -197,8 +222,10 @@ async function pickLeader(followers) {
       }
     });
   } catch {
+    crumb("dialog.close", { picked: false });
     return null;
   }
+  crumb("dialog.close", { picked: !!leaderId });
   return leaderId ? scene.tokens.get(leaderId) : null;
 }
 
@@ -234,15 +261,18 @@ async function startFollowing(follower, leader) {
   if (!follower || !leader || follower === leader) return;
   // Only the follower's owner (or a GM) may write its flag; refuse instead of a permission error.
   if (!follower.isOwner) {
+    crumb("follow.start", { result: "notOwner" });
     ui.notifications.warn(game.i18n.format("DXTF.Notify.NotOwner", { follower: follower.name }));
     return;
   }
   // The same leader rule as the dialog, also for callers of the API.
   if (!game.user.isGM && !canPlayerPick(leader)) {
+    crumb("follow.start", { result: "notAllowed" });
     ui.notifications.warn(game.i18n.format("DXTF.Notify.CannotFollow", { leader: leader.name }));
     return;
   }
   if (isFollowingChain(leader, follower)) {
+    crumb("follow.start", { result: "loop" });
     ui.notifications.warn(game.i18n.format("DXTF.Notify.Loop", { leader: leader.name, follower: follower.name }));
     return;
   }
@@ -261,6 +291,7 @@ async function startFollowing(follower, leader) {
     userId: game.user.id,
     dir
   });
+  crumb("follow.start", { result: "started", sameScene: follower.parent?.id === scene.id, dirX: dir.x, dirY: dir.y });
   ui.notifications.info(game.i18n.format("DXTF.Notify.Started", { follower: follower.name, leader: leader.name }));
 
   await moveBehind(follower, { id: leader.id, x: leader.x, y: leader.y, width: leader.width, height: leader.height, elevation: leader.elevation }, dir);
@@ -269,10 +300,12 @@ async function startFollowing(follower, leader) {
 async function stopFollowing(follower) {
   if (!getLeaderFlag(follower)) return;
   if (!follower.isOwner) {
+    crumb("follow.stop", { result: "notOwner" });
     ui.notifications.warn(game.i18n.format("DXTF.Notify.NotOwner", { follower: follower.name }));
     return;
   }
   await follower.unsetFlag(MODULE_ID, "leader");
+  crumb("follow.stop", { result: "stopped" });
   ui.notifications.info(game.i18n.format("DXTF.Notify.Stopped", { follower: follower.name }));
 }
 
@@ -433,7 +466,7 @@ function isOccupied(scene, pos, fw, fh, ignoreIds) {
  * (no wall between the leader's center and the space's center), even in "ghost mode":
  * a leader that walked through a wall must not leave its follower on the other side.
  */
-function followPosition(scene, leader, follower, dir, { leaderId } = {}) {
+function followPosition(scene, leader, follower, dir, { leaderId, info = {} } = {}) {
   const { w, h } = gridSize(scene);
   const fw = follower.width * w, fh = follower.height * h;
   const preferred = behindPosition(scene, leader, follower, dir);
@@ -458,11 +491,18 @@ function followPosition(scene, leader, follower, dir, { leaderId } = {}) {
     for (const p of candidates) {
       if (!isInsideScene(scene, p, fw, fh)) continue;
       if (isPathBlocked(scene, leaderCenter, { x: p.x + fw / 2, y: p.y + fh / 2 })) continue;
-      if (!isOccupied(scene, p, fw, fh, ignoreIds)) return p;
+      if (!isOccupied(scene, p, fw, fh, ignoreIds)) {
+        info.placement = p === preferred ? "behind" : gap === 0 ? "beside" : "oneOut";
+        return p;
+      }
       fallback ??= p;
     }
-    if (fallback) return fallback;
+    if (fallback) {
+      info.placement = "occupied";
+      return fallback;
+    }
   }
+  info.placement = "noFreeSpot";
   return preferred;
 }
 
@@ -474,11 +514,12 @@ function followPosition(scene, leader, follower, dir, { leaderId } = {}) {
  * @param options.path  leader's waypoints (top-left), used to route around walls
  */
 async function moveBehind(follower, leaderPos, dir, { ignoreWalls = false, ignoreCost = false, path = [] } = {}) {
-  if (follower.locked) return;
+  if (follower.locked) return crumb("follower.move", { result: "locked" });
   const scene = follower.parent;
   const { w, h } = gridSize(scene);
   const fw = follower.width * w, fh = follower.height * h;
-  const target = followPosition(scene, leaderPos, follower, dir, { leaderId: leaderPos.id });
+  const info = {};
+  const target = followPosition(scene, leaderPos, follower, dir, { leaderId: leaderPos.id, info });
   const tx = Math.round(target.x), ty = Math.round(target.y);
 
   const f = getLeaderFlag(follower);
@@ -487,11 +528,15 @@ async function moveBehind(follower, leaderPos, dir, { ignoreWalls = false, ignor
   }
 
   const elevation = leaderPos.elevation ?? follower.elevation;
-  if (tx === Math.round(follower.x) && ty === Math.round(follower.y) && elevation === follower.elevation) return;
+  if (tx === Math.round(follower.x) && ty === Math.round(follower.y) && elevation === follower.elevation) {
+    return crumb("follower.move", { result: "inPlace", placement: info.placement });
+  }
 
   // Without the move API (shouldn't happen on V13) fall back to a plain update.
   if (typeof follower.move !== "function") {
     await follower.update({ x: tx, y: ty, elevation }, { [MODULE_ID]: true });
+    stats.followerMoves++;
+    crumb("follower.move", { result: "plainUpdate", placement: info.placement });
     return;
   }
 
@@ -512,19 +557,25 @@ async function moveBehind(follower, leaderPos, dir, { ignoreWalls = false, ignor
     constrainOptions: { ignoreWalls, ignoreCost },
     [MODULE_ID]: true
   });
+  stats.followerMoves++;
+  crumb("follower.move", { result: "moved", placement: info.placement, waypoints: waypoints.length,
+    alongPath: waypoints.length > 1, ignoreWalls, ignoreCost });
 }
 
 /* -------------------------------------------- */
 /*  Leader movement                             */
 /* -------------------------------------------- */
 
-async function onLeaderMoved(leader, from, to, { ignoreWalls = false, ignoreCost = false, path = [], mover = null } = {}) {
+async function onLeaderMoved(leader, from, to, { ignoreWalls = false, ignoreCost = false, path = [], mover = null, source = "moveHook" } = {}) {
   // Unconstrained ("ghost mode") movement is GM-only, so the GM who moved the leader moves the followers too.
   const ghostGM = (ignoreWalls || ignoreCost) && mover?.isGM && mover.active ? mover : null;
   const followers = getFollowers(leader).filter(f => ghostGM ? ghostGM.isSelf : isResponsibleFor(f));
   if (!followers.length) return;
   const dir = snapDirection(to.x - from.x, to.y - from.y);
   if (!dir) return;
+  if (source === "moveHook") stats.leaderMovesHook++;
+  else stats.leaderMovesFallback++;
+  crumb("leader.move", { source, followers: followers.length, ghost: !!ghostGM, dirX: dir.x, dirY: dir.y, pathPoints: path.length });
 
   const leaderPos = { id: leader.id, x: to.x, y: to.y, width: leader.width, height: leader.height, elevation: to.elevation ?? leader.elevation };
   for (const follower of followers) {
@@ -532,6 +583,8 @@ async function onLeaderMoved(leader, from, to, { ignoreWalls = false, ignoreCost
       await moveBehind(follower, leaderPos, dir, { ignoreWalls, ignoreCost, path });
     } catch (err) {
       console.error(`${MODULE_ID} | could not move follower ${follower.name}`, err);
+      stats.moveErrors++;
+      caught("followerMove", err);
     }
   }
 }
@@ -562,6 +615,7 @@ Hooks.on("moveToken", (doc, movement) => {
     if (from) onLeaderMoved(doc, from, dest, { ...constrainOptionsOf(movement), path, mover: movement?.user });
   } catch (err) {
     console.error(`${MODULE_ID} | moveToken`, err);
+    caught("moveToken", err);
   }
 });
 
@@ -573,7 +627,7 @@ Hooks.on("updateToken", (doc, changes, options, userId) => {
   setTimeout(() => {
     if (handledByMoveHook.has(doc.id)) return;
     lastPos.set(doc.id, { x: doc.x, y: doc.y });
-    if (prev) onLeaderMoved(doc, prev, { x: doc.x, y: doc.y, elevation: doc.elevation }, constrain);
+    if (prev) onLeaderMoved(doc, prev, { x: doc.x, y: doc.y, elevation: doc.elevation }, { ...constrain, source: "updateFallback" });
   }, 50);
 });
 
@@ -611,6 +665,8 @@ async function checkTeleport(newLeader) {
         await teleportFollower(follower, newLeader, f);
       } catch (err) {
         console.error(`${MODULE_ID} | could not move ${follower.name} to ${newScene.name}`, err);
+        stats.teleportErrors++;
+        caught("teleport", err);
       }
     }
   }
@@ -622,7 +678,8 @@ async function teleportFollower(follower, leader, flag) {
   const dir = flag.dir ?? { x: 0, y: 1 };
 
   const data = follower.toObject();
-  const pos = followPosition(newScene, leader, follower, dir, { leaderId: leader.id });
+  const info = {};
+  const pos = followPosition(newScene, leader, follower, dir, { leaderId: leader.id, info });
   data.x = Math.round(pos.x);
   data.y = Math.round(pos.y);
   data.elevation = leader.elevation;
@@ -638,9 +695,13 @@ async function teleportFollower(follower, leader, flag) {
 
   await newScene.createEmbeddedDocuments("Token", [data], { keepId: true, [MODULE_ID]: true });
   await follower.delete({ [MODULE_ID]: true });
+  stats.teleports++;
+  crumb("teleport.done", { placement: info.placement, viewsToPull: owners.length });
 
   if (owners.length) {
     game.socket.emit(SOCKET, { type: "pull", sceneId: newScene.id, userIds: owners.map(u => u.id) });
+    stats.pullsSent++;
+    crumb("socket.pull.send", { users: owners.length });
   }
 }
 
@@ -650,20 +711,101 @@ async function teleportFollower(follower, leader, flag) {
  * payload argument it arrives as `senderId`. A message with more arguments (a client trying to pass
  * its own "sender") is ignored.
  */
+/** Counts the message for the Debug Recorder and leaves a breadcrumb with what happened. */
 function onSocket(data, senderId, ...extra) {
-  if (extra.length || typeof senderId !== "string") return;
-  if (data?.type !== "pull") return;
+  const result = handleSocket(data, senderId, extra);
+  if (result === "viewed") stats.pullsReceived++;
+  else stats.socketIgnored++;
+  crumb("socket.pull.receive", { result });
+}
+
+/** Handles one socket message; returns what happened ("viewed" or why it was ignored), for the Debug Recorder. */
+function handleSocket(data, senderId, extra) {
+  if (extra.length || typeof senderId !== "string") return "badSender";
+  if (data?.type !== "pull") return "unknownType";
 
   // Only a GM moves followers to another scene, so only a GM may pull views.
-  if (!game.users.get(senderId)?.isGM) return;
+  if (!game.users.get(senderId)?.isGM) return "notGM";
 
   const { sceneId, userIds } = data;
-  if (typeof sceneId !== "string" || !Array.isArray(userIds)) return;
-  if (!userIds.every(id => typeof id === "string") || !userIds.includes(game.user.id)) return;
+  if (typeof sceneId !== "string" || !Array.isArray(userIds)) return "badPayload";
+  if (!userIds.every(id => typeof id === "string")) return "badPayload";
+  if (!userIds.includes(game.user.id)) return "notForMe";
 
   const scene = game.scenes.get(sceneId);
-  if (!scene || scene.id === canvas?.scene?.id) return;
+  if (!scene) return "noScene";
+  if (scene.id === canvas?.scene?.id) return "sameScene";
   scene.view();
+  return "viewed";
+}
+
+/* -------------------------------------------- */
+/*  Debug Recorder snapshot                     */
+/* -------------------------------------------- */
+
+/** The follow key as one of this module's own cases: "F", "Ctrl+F", "unbound" or "custom". */
+function followKeyState() {
+  try {
+    const bindings = game.keybindings.get(MODULE_ID, ACTION) ?? [];
+    if (!bindings.length) return "unbound";
+    if (bindings.length > 1 || bindings[0].key !== "KeyF") return "custom";
+    const mods = bindings[0].modifiers ?? [];
+    if (!mods.length) return "F";
+    const KM = foundry.helpers?.interaction?.KeyboardManager ?? globalThis.KeyboardManager;
+    return mods.length === 1 && mods[0] === (KM?.MODIFIER_KEYS?.CONTROL ?? "Control") ? "Ctrl+F" : "custom";
+  } catch {
+    return "unknown";
+  }
+}
+
+/**
+ * Runtime state for the Debug Recorder: counts, flags and this module's own enums only (never token, actor, user or
+ * scene names, nor ids). A GM counts every follower in the world; a player only the followers they own.
+ */
+function debugSnapshot() {
+  const isGM = game.user.isGM;
+  const follows = {
+    total: 0, onViewedScene: 0, movedByThisClient: 0, leaderMissing: 0, leaderOnOtherScene: 0,
+    withoutDir: 0, withoutActorId: 0, startedByInactiveUser: 0, chainLongest: 0
+  };
+  const leaders = new Set();
+  for (const scene of game.scenes ?? []) {
+    for (const token of scene.tokens) {
+      const f = getLeaderFlag(token);
+      if (!f || (!isGM && !token.isOwner)) continue;
+      follows.total++;
+      leaders.add(`${f.sceneId}.${f.tokenId}`);
+      if (scene.id === canvas?.scene?.id) follows.onViewedScene++;
+      if (f.sceneId !== scene.id) follows.leaderOnOtherScene++;
+      if (!game.scenes.get(f.sceneId)?.tokens.get(f.tokenId)) follows.leaderMissing++;
+      if (!f.dir) follows.withoutDir++;
+      if (!f.actorId) follows.withoutActorId++;
+      if (!game.users.get(f.userId)?.active) follows.startedByInactiveUser++;
+      if (isResponsibleFor(token)) follows.movedByThisClient++;
+      let depth = 1;
+      let next = game.scenes.get(f.sceneId)?.tokens.get(f.tokenId);
+      const seen = new Set([token.uuid]);
+      while (next && getLeaderFlag(next) && !seen.has(next.uuid) && depth < 50) {
+        seen.add(next.uuid);
+        depth++;
+        const nf = getLeaderFlag(next);
+        next = game.scenes.get(nf.sceneId)?.tokens.get(nf.tokenId);
+      }
+      follows.chainLongest = Math.max(follows.chainLongest, depth);
+    }
+  }
+  return {
+    isGM,
+    activeGM: !!game.users.activeGM?.isSelf,
+    followKey: followKeyState(),
+    moveApi: typeof foundry.documents?.TokenDocument?.prototype?.move === "function",
+    follows,
+    leaders: leaders.size,
+    positionsTracked: lastPos.size,
+    pendingMoveHookMarks: handledByMoveHook.size,
+    stats: { ...stats },
+    lastError
+  };
 }
 
 /* -------------------------------------------- */

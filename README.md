@@ -30,10 +30,6 @@ The full guide is in the [wiki](https://github.com/dxcufgb/FoundryVTT-token-foll
 - [Settings](https://github.com/dxcufgb/FoundryVTT-token-follower/wiki/Settings): the follow key
 - [API](https://github.com/dxcufgb/FoundryVTT-token-follower/wiki/API): for macro and module authors, and the stored flag
 
-## Releasing
-
-For the maintainer: **Actions → Release module → Run workflow**, type the version (for example `1.2.3`) and run it. The module is checked and packaged first; only then is the release `v1.2.3` published with `module.json` and `module.zip`. CI and releases come from [dxcufgb/foundry-module-ci](https://github.com/dxcufgb/foundry-module-ci), the same for every module.
-
 ## License
 
 [MIT](LICENSE)
